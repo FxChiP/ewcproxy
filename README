@@ -12,7 +12,7 @@ And it will connect to the EWC server, handling authentication for you
 and masquerading as Rambler (EWC's Flash IRC client). 
 
 Caveat: it will cheat your IRC Client into thinking it has absolutely
-no lag. I haven't yet found a way to work around this yet (possibly
+no lag. I haven't yet found a way to work around this (possibly
 use CTCP PING on the server end and translate it back to PING/PONG)
 
 Enjoy!
