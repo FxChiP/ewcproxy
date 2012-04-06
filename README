@@ -16,3 +16,7 @@ no lag. I haven't yet found a way to work around this (possibly
 use CTCP PING on the server end and translate it back to PING/PONG)
 
 Enjoy!
+
+** WARNING: This is NOT an X-Chat add-on nor is it an add-on to ANY IRC
+   client! DO NOT PUT IN X-CHAT'S (OR ANY OTHER CLIENT'S) DIRECTORIES OR
+   YOUR IRC CLIENT MIGHT HANG! **
