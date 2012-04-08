@@ -21,7 +21,7 @@ my $csi = sockaddr_in(7000, inet_aton($ewc_ip));
 
 my %ctcp_replies = (
 	"VERSION" => "EveryWhereChat Rambler 2.1.761 [Linux 3.0.0-12-generic]",
-	"CLIENTDATA" => "URL: http://everywherechat.com/everywherechat.swf | OS: Linux 3.0.0-12-generic | Browser: Netscape 5.0 (X11) | Flash: LNX 11,0,1,152 | EyjRkhgw4XeHzcIKBTwvluhCCuhAgUqtBhtv7xQNBKlSldvIf0LL8oWhSALWcYCqZUZbc94245QsVwxT0WMMCykHZ8GgoFI9LoUgRYvtH1ueEY00KSMa2KeCiyDPKGgH | null | null | rambler | [nick]"
+	"CLIENTDATA" => "URL: http://everywherechat.com/everywherechat.swf | OS: Linux 3.0.0-12-generic | Browser: Netscape 5.0 (X11) | Flash: LNX 11,0,1,152 | EyjRkhgw4XeHzcIKBTwvluhCCuhAgUqtBhtv7xQNBKlSldvIf0LL8oWhSALWcYCqZUZbc94245QsVwxT0WMMCykHZ8GgoFI9LoUgRYvtH1ueEY00KSMa2KeCiyDPKGgH | [secret] | [secret_material] | rambler | [nick]"
 );
 
 
@@ -122,7 +122,7 @@ while (1) {
 		# clients+reading, servers+writing, servers+reading, clients+writing
 		# clients+reading
 		my $pair = $pairs[$i]; 
-		if (vec($readers, fileno($pair->{'cs'}), 1)) {
+		if (defined(fileno($pair->{'cs'})) && vec($readers, fileno($pair->{'cs'}), 1)) {
 			my $tmpbuf = '';
 			my $read = sysread($pair->{'cs'}, $tmpbuf, 512);
 			if ($read == 512) {
@@ -204,7 +204,7 @@ while (1) {
 		}
 		
 		# servers+writing
-		if (defined($pair->{'ss'}) && vec($writers, fileno($pair->{'ss'}), 1)) {
+		if (defined(fileno($pair->{'ss'})) && vec($writers, fileno($pair->{'ss'}), 1)) {
 			my $bytes_written = syswrite($pair->{'ss'}, $pair->{'sw'}, length($pair->{'sw'}));
 			if ($bytes_written < length($pair->{'sw'})) {
 				$pair->{'sw'} = substr($pair->{'sw'}, $bytes_written);
@@ -212,7 +212,7 @@ while (1) {
 		}
 		
 		# servers+reading
-		if (vec($readers, fileno($pair->{'ss'}), 1)) {
+		if (defined(fileno($pair->{'ss'})) && vec($readers, fileno($pair->{'ss'}), 1)) {
 			my $tmpbuf = "";
 			my $read = sysread($pair->{'ss'}, $tmpbuf, 512);
 			if ($read == 512) {
@@ -243,7 +243,9 @@ while (1) {
 				if (uc($tokens[1]) eq "PING" || uc($tokens[0]) eq "PING") { # Fucking silly, no server sends just the PING. :(
 					if ($pair->{'secret'} eq "") {
 						# Generate a 'secret'. a.k.a. j is a fucking dumbass
-						$pair->{'secret'} = sha1_hex("rambler" . $tokens[2] . $pair->{'nick'} . $ewc_magic_constant);
+						my $which_next_token_i = (uc($tokens[0]) eq "PING") ? 1 : 2; 
+						$pair->{'secret_material'} = $tokens[$which_next_token_i];
+						$pair->{'secret'} = sha1_hex("rambler" . $tokens[$which_next_token_i] . $pair->{'nick'} . $ewc_magic_constant);
 					}
 					$pair->{'sw'} .= "PONG " . $pair->{'secret'} . "\r\n";
 					#print "SEND PONG " . $pair->{'secret'} . "\n";
@@ -261,7 +263,12 @@ while (1) {
 							} elsif (uc(substr($msg, 0, 11)) eq "\001CLIENTDATA") {
 								# Fake our CLIENTINFO
 								my $ci = $ctcp_replies{'CLIENTDATA'};
+								my $secret = ($pair->{'secret'} eq "" ? "null" : $pair->{'secret'});
+								my $secret_material = ($pair->{'secret_material'} eq "" ? "null" : $pair->{'secret_material'});
 								$ci =~ s/\[nick\]/$pair->{'nick'}/g;
+								$ci =~ s/\[secret\]/$secret/g;
+								$ci =~ s/\[secret_material\]/$secret_material/g;
+								
 								$pair->{'sw'} .= "NOTICE " . $nick . " :\001CLIENTDATA " . $ci . "\001\r\n"; 
 							} elsif (uc(substr($msg, 0, 12)) eq "\001BLOCKCLIENT") {
 								print "WARNING: CTCP BLOCKCLIENT RECEIVED: You are VERY likely to be banned at this point!\n"; 
@@ -285,7 +292,7 @@ while (1) {
 		}
 		
 		# clients+writing
-		if (defined($pair->{'cs'}) && vec($writers, fileno($pair->{'cs'}), 1)) {
+		if (defined(fileno($pair->{'cs'})) && vec($writers, fileno($pair->{'cs'}), 1)) {
 			my $bytes_written = syswrite($pair->{'cs'}, $pair->{'cw'}, length($pair->{'cw'}));
 			if ($bytes_written < length($pair->{'cw'})) {
 				$pair->{'cw'} = substr($pair->{'cw'}, $bytes_written);
@@ -307,6 +314,7 @@ while (1) {
 		
 		$new_pair->{'is_real'} = 0;
 		$new_pair->{'secret'} = "";
+		$new_pair->{'secret_material'} = "";
 		
 		$new_pair->{'cr'} = ""; 
 		$new_pair->{'cw'} = "";
